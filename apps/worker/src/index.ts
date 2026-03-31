@@ -24,6 +24,18 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+function withCors(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
 function sessionStub(env: Env, sessionId: string): DurableObjectStub {
   const id = env.DEBATE_SESSION.idFromName(sessionId);
   return env.DEBATE_SESSION.get(id);
@@ -80,15 +92,15 @@ export default {
       const stub = sessionStub(env, sessionId);
 
       if (!action && request.method === "GET") {
-        return stub.fetch("https://session/state");
+        return withCors(await stub.fetch("https://session/state"));
       }
 
       if (action === "stream" && request.method === "GET") {
-        return stub.fetch("https://session/stream");
+        return withCors(await stub.fetch("https://session/stream"));
       }
 
       if ((action === "start" || action === "pause" || action === "resume") && request.method === "POST") {
-        return stub.fetch(`https://session/${action}`, { method: "POST" });
+        return withCors(await stub.fetch(`https://session/${action}`, { method: "POST" }));
       }
     }
 

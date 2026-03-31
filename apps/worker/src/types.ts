@@ -58,6 +58,8 @@ export interface Env {
   ELEVENLABS_API_KEY?: string;
   ELEVENLABS_BASE_URL?: string;
   ELEVENLABS_MODEL_ID?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  CLOUDFLARE_API_TOKEN?: string;
   VOICE_SOCRATES?: string;
   VOICE_NAPOLEON?: string;
   VOICE_NEWTON?: string;

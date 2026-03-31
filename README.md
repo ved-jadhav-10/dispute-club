@@ -18,7 +18,10 @@ Set these via Wrangler or `.dev.vars` in `apps/worker`:
 - `ELEVENLABS_API_KEY`
 - `ELEVENLABS_BASE_URL` (optional, default `https://api.elevenlabs.io`)
 - `ELEVENLABS_MODEL_ID` (optional, default `eleven_multilingual_v2`)
-- Optional AI binding for Workers AI (`AI`) to replace fallback text generation.
+- `CLOUDFLARE_ACCOUNT_ID` (optional, enables Workers AI via REST API)
+- `CLOUDFLARE_API_TOKEN` (optional, token with Workers AI permission)
+
+If the two Cloudflare variables are missing, the app uses built-in fallback debate text.
 
 ## Web Env
 Create `apps/web/.env.local` with:

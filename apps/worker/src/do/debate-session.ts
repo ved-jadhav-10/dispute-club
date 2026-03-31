@@ -56,9 +56,11 @@ export class DebateSessionDO implements DurableObject {
       session.status = "running";
       await this.save(session);
       this.broadcast("session.started", { sessionId: session.sessionId });
-      this.runLoop().catch((error) => {
-        void this.failWithError(String(error));
-      });
+      this.state.waitUntil(
+        this.runLoop().catch((error) => {
+          void this.failWithError(String(error));
+        })
+      );
       return json({ ok: true, status: session.status });
     }
 
@@ -86,9 +88,11 @@ export class DebateSessionDO implements DurableObject {
       session.status = "running";
       await this.save(session);
       this.broadcast("session.resumed", { sessionId: session.sessionId });
-      this.runLoop().catch((error) => {
-        void this.failWithError(String(error));
-      });
+      this.state.waitUntil(
+        this.runLoop().catch((error) => {
+          void this.failWithError(String(error));
+        })
+      );
       return json({ ok: true, status: "running" });
     }
 
