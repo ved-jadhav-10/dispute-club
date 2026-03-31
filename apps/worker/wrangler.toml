@@ -1,0 +1,16 @@
+name = "dispute-club-worker"
+main = "src/index.ts"
+compatibility_date = "2026-03-31"
+
+[vars]
+WORKERS_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+DEFAULT_MAX_TURNS = "6"
+MAX_TURN_CHARS = "700"
+
+[[durable_objects.bindings]]
+name = "DEBATE_SESSION"
+class_name = "DebateSessionDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DebateSessionDO"]

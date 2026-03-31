@@ -1,0 +1,19 @@
+{
+  "name": "@dispute-club/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260327.0",
+    "typescript": "^5.6.2",
+    "wrangler": "^4.7.0"
+  }
+}
