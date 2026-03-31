@@ -44,30 +44,27 @@ export default function SetupPage() {
   }
 
   return (
-    <main className="container">
-      <section className="panel" style={{ display: "grid", gap: 16 }}>
-        <h1 style={{ marginBottom: 0 }}>Dispute Club</h1>
-        <p style={{ marginTop: 0, color: "var(--muted)" }}>
-          Pick two historical figures and a modern topic. Your six-turn voice debate starts live.
+    <main className="container home-layout">
+      <section className="panel hero-panel">
+        <p className="eyebrow">Voice Arena</p>
+        <img src="/assets/logo.png" alt="Dispute Club" className="brand-logo" />
+        <p style={{ marginTop: 0, color: "var(--muted)", maxWidth: 640 }}>
+          Stage a six-turn showdown between iconic historical minds on any modern question, then listen as each side escalates the heat in real time.
         </p>
+      </section>
+
+      <section id="new-debate" className="panel" style={{ display: "grid", gap: 16 }}>
+        <h2 style={{ margin: 0 }}>New Debate</h2>
 
         <label>
           Topic
-          <input
-            style={{ display: "block", width: "100%", padding: 10, marginTop: 6, borderRadius: 10, border: "1px solid var(--line)" }}
-            value={topic}
-            onChange={(event) => setTopic(event.target.value)}
-          />
+          <input className="field" value={topic} onChange={(event) => setTopic(event.target.value)} />
         </label>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="split-grid">
           <label>
             Left Figure
-            <select
-              style={{ display: "block", width: "100%", padding: 10, marginTop: 6, borderRadius: 10, border: "1px solid var(--line)" }}
-              value={leftFigureId}
-              onChange={(event) => setLeftFigureId(event.target.value)}
-            >
+            <select className="field" value={leftFigureId} onChange={(event) => setLeftFigureId(event.target.value)}>
               {selectable.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.label}
@@ -78,11 +75,7 @@ export default function SetupPage() {
 
           <label>
             Right Figure
-            <select
-              style={{ display: "block", width: "100%", padding: 10, marginTop: 6, borderRadius: 10, border: "1px solid var(--line)" }}
-              value={rightFigureId}
-              onChange={(event) => setRightFigureId(event.target.value)}
-            >
+            <select className="field" value={rightFigureId} onChange={(event) => setRightFigureId(event.target.value)}>
               {selectable.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.label}
