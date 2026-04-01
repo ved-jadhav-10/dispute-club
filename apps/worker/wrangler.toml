@@ -2,6 +2,9 @@ name = "dispute-club-worker"
 main = "src/index.ts"
 compatibility_date = "2026-03-31"
 
+[ai]
+binding = "AI"
+
 [vars]
 WORKERS_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct"
 DEFAULT_MAX_TURNS = "6"

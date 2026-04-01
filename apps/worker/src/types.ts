@@ -16,6 +16,7 @@ export interface TranscriptTurn {
   side: Side;
   text: string;
   audioUrl: string | null;
+  generationSource?: "ai" | "rest" | "fallback";
   durationMs: number | null;
   createdAt: string;
 }
@@ -40,6 +41,7 @@ export interface SessionState {
     right: number;
   };
   transcript: TranscriptTurn[];
+  lastGenerationSource?: "ai" | "rest" | "fallback";
   lastError: string | null;
   config: SessionConfig;
 }
@@ -48,6 +50,7 @@ export interface DebateTurnResult {
   argument: string;
   heatDelta: number;
   persuasionDelta: number;
+  source: "ai" | "rest" | "fallback";
 }
 
 export interface Env {

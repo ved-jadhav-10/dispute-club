@@ -42,6 +42,7 @@ export class DebateSessionDO implements DurableObject {
         heat: 0.25,
         persuasion: { left: 0, right: 0 },
         transcript: [],
+        lastGenerationSource: undefined,
         lastError: null,
         config
       };
@@ -170,7 +171,8 @@ export class DebateSessionDO implements DurableObject {
     this.broadcast("turn.generated", {
       turn: session.turnIndex + 1,
       speaker: speaker.id,
-      text: generated.argument
+      text: generated.argument,
+      source: generated.source
     });
 
     const audioUrl = await synthesizeSpeech({
@@ -188,6 +190,7 @@ export class DebateSessionDO implements DurableObject {
       side,
       text: generated.argument,
       audioUrl,
+      generationSource: generated.source,
       durationMs: completedAt - startedAt,
       createdAt: new Date().toISOString()
     });
@@ -196,6 +199,7 @@ export class DebateSessionDO implements DurableObject {
     session.currentSpeaker = side === "left" ? "right" : "left";
     session.heat = Math.min(1, Math.max(0, session.heat + generated.heatDelta));
     session.persuasion[side] = Math.min(1, Math.max(-1, session.persuasion[side] + generated.persuasionDelta));
+    session.lastGenerationSource = generated.source;
 
     await this.save(session);
 
@@ -211,6 +215,7 @@ export class DebateSessionDO implements DurableObject {
       side,
       text: generated.argument,
       audioUrl,
+      source: generated.source,
       heat: session.heat
     });
   }

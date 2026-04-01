@@ -133,21 +133,92 @@ function personaLine(figureId: string): string {
   }
 }
 
+function personaLineVariants(figureId: string): string[] {
+  switch (figureId) {
+    case "socrates":
+      return [
+        "If your claim is true, by what definition of justice does unchecked power over intelligence remain legitimate?",
+        "Should we call it wisdom when power grows faster than moral examination?",
+        "A city that refuses to question its tools eventually becomes ruled by them."
+      ];
+    case "napoleon":
+      return [
+        "Nations that fail to command transformative technology are ruled by those that do.",
+        "Strategy without command of new tools is surrender dressed as caution.",
+        "Power respects preparation, not good intentions."
+      ];
+    case "newton":
+      return [
+        "Policy must follow observed consequences, not superstition about machines.",
+        "Let evidence lead, and let law update when experiments reveal harm.",
+        "A model is judged by outcomes, not fear or fashion."
+      ];
+    case "gandhi":
+      return [
+        "Power without conscience becomes violence by quieter means.",
+        "If intelligence scales, responsibility must scale first.",
+        "A just society restrains tools that tempt domination."
+      ];
+    case "shakespeare":
+      return [
+        "When man forges a brighter mind, he must also forge a steadier conscience.",
+        "Unbridled genius writes tragedy before the final act is known.",
+        "Let invention wear a moral crown, lest it become a tyrant."
+      ];
+    case "confucius":
+      return [
+        "A state is well ordered only when its tools answer to virtue and duty.",
+        "Ritual and law exist so power serves harmony rather than pride.",
+        "When rulers cannot govern new tools, disorder governs the rulers."
+      ];
+    default:
+      return [personaLine(figureId)];
+  }
+}
+
+function pickVariant(options: string[], seed: number): string {
+  if (options.length === 0) {
+    return "";
+  }
+  const index = Math.abs(seed) % options.length;
+  return options[index];
+}
+
 function fallbackArgument(params: GenerateTurnParams): DebateTurnResult {
   const lastTurn = params.transcript[params.transcript.length - 1];
-  const opening = lastTurn
-    ? `${params.opponent.name}, your last point underestimates the social cost of badly governed intelligence.`
-    : `On ${params.topic}, we should begin with first principles before policy slogans.`
-  const stance = personaLine(params.speaker.id);
-  const close =
+  const nextTurn = params.transcript.length + 1;
+  const openingOptions = lastTurn
+    ? [
+        `${params.opponent.name}, your last point misses the practical social cost of weak oversight.`,
+        `${params.opponent.name}, your argument overlooks who pays the price when safeguards fail.`,
+        `${params.opponent.name}, that sounds bold, but it leaves ordinary people exposed.`
+      ]
+    : [
+        `On ${params.topic}, we should begin with first principles before policy slogans.`,
+        `On ${params.topic}, the first duty is to define what responsible progress looks like.`,
+        `On ${params.topic}, we need rules that protect people while preserving discovery.`
+      ];
+  const opening = pickVariant(openingOptions, nextTurn + params.speaker.name.length);
+  const stance = pickVariant(personaLineVariants(params.speaker.id), nextTurn + params.opponent.name.length);
+  const closeOptions =
     params.heat > 0.65
-      ? "Act now with enforceable rules, or accept preventable harm as policy."
-      : "Build freedom and accountability together, and we gain innovation without surrendering dignity.";
+      ? [
+          "Act now with enforceable rules, or accept preventable harm as policy.",
+          "Delay is a decision too, and it favors whoever exploits first.",
+          "Without enforceable limits, we are simply outsourcing risk to the public."
+        ]
+      : [
+          "Build freedom and accountability together, and we gain innovation without surrendering dignity.",
+          "Balanced guardrails can accelerate trust, adoption, and real benefit.",
+          "Prudent oversight is not anti-progress; it is how progress survives."
+        ];
+  const close = pickVariant(closeOptions, Math.round(params.heat * 100) + nextTurn);
 
   return {
     argument: toPunchy(`${opening} ${stance} ${close}`),
     heatDelta: 0.06,
-    persuasionDelta: params.heat > 0.7 ? -0.02 : 0.03
+    persuasionDelta: params.heat > 0.7 ? -0.02 : 0.03,
+    source: "fallback"
   };
 }
 
@@ -172,6 +243,7 @@ function buildPrompt(params: GenerateTurnParams, recentTranscript: string): stri
 
 export async function generateTurn(params: GenerateTurnParams): Promise<DebateTurnResult> {
   let raw = "";
+  let source: "ai" | "rest" | "fallback" = "fallback";
   const recentTranscript = params.transcript
     .slice(-4)
     .map((turn) => `${turn.speaker}: ${turn.text}`)
@@ -186,6 +258,9 @@ export async function generateTurn(params: GenerateTurnParams): Promise<DebateTu
         temperature: 0.75
       });
       raw = String(aiResponse.response ?? "").trim();
+      if (raw) {
+        source = "ai";
+      }
     } catch {
       raw = "";
     }
@@ -210,6 +285,9 @@ export async function generateTurn(params: GenerateTurnParams): Promise<DebateTu
       if (restResponse.ok) {
         const payload = (await restResponse.json()) as WorkersAiRestResponse;
         raw = String(payload.result?.response ?? "").trim();
+        if (raw) {
+          source = "rest";
+        }
       }
     } catch {
       raw = "";
@@ -232,7 +310,8 @@ export async function generateTurn(params: GenerateTurnParams): Promise<DebateTu
           Number(params.env.MAX_TURN_CHARS || 700)
         ),
         heatDelta: clamp(Number(structured.heatDelta ?? 0.05), -0.1, 0.2),
-        persuasionDelta: clamp(Number(structured.persuasionDelta ?? 0), -0.2, 0.2)
+        persuasionDelta: clamp(Number(structured.persuasionDelta ?? 0), -0.2, 0.2),
+        source
       };
     }
 
@@ -242,7 +321,8 @@ export async function generateTurn(params: GenerateTurnParams): Promise<DebateTu
         Number(params.env.MAX_TURN_CHARS || 700)
       ),
       heatDelta: 0.06,
-      persuasionDelta: params.heat > 0.7 ? -0.02 : 0.03
+      persuasionDelta: params.heat > 0.7 ? -0.02 : 0.03,
+      source
     };
   } catch {
     return fallbackArgument(params);
