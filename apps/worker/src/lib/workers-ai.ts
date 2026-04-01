@@ -45,6 +45,29 @@ function toPunchy(argument: string): string {
   return capped.slice(0, 520).trimEnd();
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripSpeakerPrefix(argument: string, speakerName: string, speakerId: string): string {
+  const compact = argument.replace(/\s+/g, " ").trim();
+  if (!compact) {
+    return compact;
+  }
+
+  const normalizedId = speakerId.replace(/[_-]+/g, " ").trim();
+  const aliases = [speakerName, normalizedId].filter((value) => value.length > 0);
+
+  for (const alias of aliases) {
+    const pattern = new RegExp(`^${escapeRegex(alias)}\\s*[:\-\u2014]\s*`, "i");
+    if (pattern.test(compact)) {
+      return compact.replace(pattern, "").trim();
+    }
+  }
+
+  return compact;
+}
+
 function tryParseStructuredTurn(raw: string): DebateTurnResult | null {
   const trimmed = raw.trim();
 
@@ -113,8 +136,8 @@ function personaLine(figureId: string): string {
 function fallbackArgument(params: GenerateTurnParams): DebateTurnResult {
   const lastTurn = params.transcript[params.transcript.length - 1];
   const opening = lastTurn
-    ? `${params.speaker.name}: ${params.opponent.name}, your last point underestimates the social cost of badly governed intelligence.`
-    : `${params.speaker.name}: On ${params.topic}, we should begin with first principles before policy slogans.`;
+    ? `${params.opponent.name}, your last point underestimates the social cost of badly governed intelligence.`
+    : `On ${params.topic}, we should begin with first principles before policy slogans.`
   const stance = personaLine(params.speaker.id);
   const close =
     params.heat > 0.65
@@ -204,14 +227,20 @@ export async function generateTurn(params: GenerateTurnParams): Promise<DebateTu
       }
 
       return {
-        argument: capAtSentenceBoundary(toPunchy(structured.argument), Number(params.env.MAX_TURN_CHARS || 700)),
+        argument: capAtSentenceBoundary(
+          toPunchy(stripSpeakerPrefix(structured.argument, params.speaker.name, params.speaker.id)),
+          Number(params.env.MAX_TURN_CHARS || 700)
+        ),
         heatDelta: clamp(Number(structured.heatDelta ?? 0.05), -0.1, 0.2),
         persuasionDelta: clamp(Number(structured.persuasionDelta ?? 0), -0.2, 0.2)
       };
     }
 
     return {
-      argument: capAtSentenceBoundary(toPunchy(sanitizeFreeformArgument(raw)), Number(params.env.MAX_TURN_CHARS || 700)),
+      argument: capAtSentenceBoundary(
+        toPunchy(stripSpeakerPrefix(sanitizeFreeformArgument(raw), params.speaker.name, params.speaker.id)),
+        Number(params.env.MAX_TURN_CHARS || 700)
+      ),
       heatDelta: 0.06,
       persuasionDelta: params.heat > 0.7 ? -0.02 : 0.03
     };
