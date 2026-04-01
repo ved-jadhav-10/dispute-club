@@ -39,12 +39,21 @@ type SessionState = {
 
 type FigureLookup = Record<string, Figure>;
 
+type QueuedAudio = {
+  turn: number;
+  audioUrl: string;
+};
+
 function imagePath(figureId: string): string {
   return `/assets/characters/${figureId}.png`;
 }
 
 export default function DebatePage({ params }: { params: { id: string } }) {
   const workerBase = useMemo(() => getWorkerBaseUrl(), []);
+  const audioQueueRef = useRef<QueuedAudio[]>([]);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUnlockedRef = useRef(false);
+  const seenTurnsRef = useRef<Set<number>>(new Set());
   const [status, setStatus] = useState("loading");
   const [topic, setTopic] = useState("");
   const [heat, setHeat] = useState(0);
@@ -58,11 +67,16 @@ export default function DebatePage({ params }: { params: { id: string } }) {
   const [battleLogOpen, setBattleLogOpen] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [verdict, setVerdict] = useState<string | null>(null);
+  const [activeAudioTurn, setActiveAudioTurn] = useState<number | null>(null);
+  const [pendingCompletion, setPendingCompletion] = useState(false);
+  const [isCalculatingResult, setIsCalculatingResult] = useState(false);
+  const resultTimerRef = useRef<number | null>(null);
 
   const leftFigure = leftFigureId ? figures[leftFigureId] : undefined;
   const rightFigure = rightFigureId ? figures[rightFigureId] : undefined;
 
-  const currentTurn = turns[turns.length - 1];
+  const activeTurn = activeAudioTurn ? turns.find((turn) => turn.turn === activeAudioTurn) : undefined;
+  const currentTurn = activeTurn ?? turns[turns.length - 1];
   const currentSpeaker = currentTurn?.side === "left" ? leftFigure : rightFigure;
 
   const leftShare = Math.round(((persuasion.left + 1) / 2) * 100);
@@ -74,14 +88,72 @@ export default function DebatePage({ params }: { params: { id: string } }) {
   const loserShare = winner === "left" ? rightShare : leftShare;
   const margin = Math.abs(leftShare - rightShare);
 
+  const playNextQueuedAudio = () => {
+    if (!audioUnlockedRef.current || activeAudioRef.current) {
+      return;
+    }
+
+    const nextItem = audioQueueRef.current.shift();
+    if (!nextItem) {
+      return;
+    }
+
+    const audio = new Audio(nextItem.audioUrl);
+    activeAudioRef.current = audio;
+    setActiveAudioTurn(nextItem.turn);
+
+    const clearAndContinue = () => {
+      activeAudioRef.current = null;
+      setActiveAudioTurn(null);
+      playNextQueuedAudio();
+    };
+
+    audio.addEventListener("ended", clearAndContinue, { once: true });
+    audio.addEventListener("error", clearAndContinue, { once: true });
+
+    void audio.play().catch(() => {
+      activeAudioRef.current = null;
+      setActiveAudioTurn(null);
+      audioQueueRef.current.unshift(nextItem);
+    });
+  };
+
+  useEffect(() => {
+    const unlockAudio = () => {
+      audioUnlockedRef.current = true;
+      playNextQueuedAudio();
+    };
+
+    if (sessionStorage.getItem("dc-audio-primed") === "1") {
+      audioUnlockedRef.current = true;
+      sessionStorage.removeItem("dc-audio-primed");
+    }
+
+    playNextQueuedAudio();
+
+    window.addEventListener("pointerdown", unlockAudio);
+    window.addEventListener("keydown", unlockAudio);
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+  }, []);
+
   useEffect(() => {
     let eventSource: EventSource | null = null;
+    let cancelled = false;
 
     async function bootstrap() {
       const figureList = await getFigures();
+      if (cancelled) {
+        return;
+      }
       setFigures(Object.fromEntries(figureList.map((figure) => [figure.id, figure])));
 
       const stateResponse = await fetch(`${workerBase}/api/session/${params.id}`);
+      if (cancelled) {
+        return;
+      }
       if (!stateResponse.ok) {
         setStatus("error");
         return;
@@ -102,23 +174,35 @@ export default function DebatePage({ params }: { params: { id: string } }) {
           heat: state.heat
         }))
       );
+      seenTurnsRef.current = new Set(state.transcript.map((turn) => turn.turn));
 
       await fetch(`${workerBase}/api/session/${params.id}/start`, { method: "POST" });
+      if (cancelled) {
+        return;
+      }
 
       eventSource = new EventSource(`${workerBase}/api/session/${params.id}/stream`);
+      if (cancelled) {
+        eventSource.close();
+        return;
+      }
 
       eventSource.addEventListener("turn.play", (event) => {
         const payload = JSON.parse((event as MessageEvent).data) as Turn;
+        const isNewTurn = !seenTurnsRef.current.has(payload.turn);
+        if (isNewTurn) {
+          seenTurnsRef.current.add(payload.turn);
+        }
+
         setHeat(payload.heat);
         setMaxHeat((prev) => Math.max(prev, payload.heat));
-        setTurns((prev) => {
-          const exists = prev.some((item) => item.turn === payload.turn);
-          return exists ? prev : [...prev, payload];
-        });
+        if (isNewTurn) {
+          setTurns((prev) => [...prev, payload]);
+        }
 
-        if (payload.audioUrl) {
-          const audio = new Audio(payload.audioUrl);
-          void audio.play();
+        if (payload.audioUrl && isNewTurn) {
+          audioQueueRef.current.push({ turn: payload.turn, audioUrl: payload.audioUrl });
+          playNextQueuedAudio();
         }
       });
 
@@ -129,7 +213,7 @@ export default function DebatePage({ params }: { params: { id: string } }) {
           setPersuasion(refreshed.persuasion);
           setHeat(refreshed.heat);
         }
-        setStatus("completed");
+        setPendingCompletion(true);
       });
 
       eventSource.addEventListener("session.error", () => {
@@ -140,11 +224,41 @@ export default function DebatePage({ params }: { params: { id: string } }) {
     void bootstrap();
 
     return () => {
+      cancelled = true;
+      if (activeAudioRef.current) {
+        activeAudioRef.current.pause();
+        activeAudioRef.current = null;
+      }
+      audioQueueRef.current = [];
+      setActiveAudioTurn(null);
+      if (resultTimerRef.current !== null) {
+        window.clearTimeout(resultTimerRef.current);
+        resultTimerRef.current = null;
+      }
+      seenTurnsRef.current.clear();
       if (eventSource) {
         eventSource.close();
       }
     };
   }, [params.id, workerBase]);
+
+  useEffect(() => {
+    if (!pendingCompletion || isCalculatingResult) {
+      return;
+    }
+
+    if (activeAudioTurn !== null || audioQueueRef.current.length > 0) {
+      return;
+    }
+
+    setIsCalculatingResult(true);
+    resultTimerRef.current = window.setTimeout(() => {
+      setIsCalculatingResult(false);
+      setPendingCompletion(false);
+      setStatus("completed");
+      resultTimerRef.current = null;
+    }, 1800);
+  }, [pendingCompletion, activeAudioTurn, isCalculatingResult]);
 
   async function handlePause() {
     if (isPaused) {
@@ -182,6 +296,19 @@ export default function DebatePage({ params }: { params: { id: string } }) {
   }
 
   // Results View
+  if (isCalculatingResult) {
+    return (
+      <main className="container">
+        <div className="panel calculating-panel">
+          <div className="debate-title" style={{ marginBottom: 14 }}>DISPUTE CLUB</div>
+          <div className="calculating-title">CALCULATING VERDICT</div>
+          <p className="calculating-subtitle">Crowd reactions and persuasion shifts are being finalized...</p>
+          <div className="calculating-loader" />
+        </div>
+      </main>
+    );
+  }
+
   if (status === "completed") {
     const winnerName = winnerFigure?.name ?? "Unknown";
     const loserFigure = winner === "left" ? rightFigure : leftFigure;
@@ -356,9 +483,11 @@ export default function DebatePage({ params }: { params: { id: string } }) {
                   const shortName = speaker?.name?.slice(0, 3).toUpperCase() ?? turn.speaker.slice(0, 3).toUpperCase();
                   return (
                     <div key={turn.turn} className="log-entry">
-                      <span className="turn-num">T{turn.turn}</span>
-                      <span className="speaker">{shortName}</span>
-                      {" "}{turn.text.slice(0, 100)}{turn.text.length > 100 ? "..." : ""}
+                      <div className="log-entry-head">
+                        <span className="turn-num">T{turn.turn}</span>
+                        <span className="speaker">{shortName}</span>
+                      </div>
+                      <p className="log-text">{turn.text}</p>
                     </div>
                   );
                 })
@@ -371,9 +500,6 @@ export default function DebatePage({ params }: { params: { id: string } }) {
         <div className="debate-controls">
           <button className="ctrl-btn pause" onClick={handlePause}>
             {isPaused ? "▶ RESUME" : "⏸ PAUSE"}
-          </button>
-          <button className="ctrl-btn next" disabled>
-            NEXT TURN
           </button>
           <Link href="/" className="ctrl-btn end">
             END

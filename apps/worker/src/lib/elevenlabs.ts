@@ -6,6 +6,20 @@ interface SynthesizeParams {
   voiceId: string;
 }
 
+function resolveModelId(value: string | undefined): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return "eleven_multilingual_v2";
+  }
+
+  // Common misconfiguration: agent IDs are not valid TTS model IDs.
+  if (trimmed.startsWith("agent_")) {
+    return "eleven_multilingual_v2";
+  }
+
+  return trimmed;
+}
+
 function toBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
@@ -21,7 +35,7 @@ export async function synthesizeSpeech(params: SynthesizeParams): Promise<string
   }
 
   const baseUrl = params.env.ELEVENLABS_BASE_URL ?? "https://api.elevenlabs.io";
-  const modelId = params.env.ELEVENLABS_MODEL_ID ?? "eleven_multilingual_v2";
+  const modelId = resolveModelId(params.env.ELEVENLABS_MODEL_ID);
 
   const response = await fetch(`${baseUrl}/v1/text-to-speech/${params.voiceId}`, {
     method: "POST",
@@ -37,6 +51,8 @@ export async function synthesizeSpeech(params: SynthesizeParams): Promise<string
   });
 
   if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    console.warn(`ElevenLabs TTS failed (${response.status}): ${details.slice(0, 300)}`);
     return null;
   }
 

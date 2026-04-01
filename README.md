@@ -48,9 +48,11 @@ Required for voice output:
 Optional worker settings:
 - `ELEVENLABS_BASE_URL` (default: `https://api.elevenlabs.io`)
 - `ELEVENLABS_MODEL_ID` (default: `eleven_multilingual_v2`)
+- `ELEVENLABS_DEFAULT_VOICE_ID` (fallback voice used when a figure-specific `VOICE_*` value is missing)
 - `WORKERS_AI_MODEL` (default in `wrangler.toml`)
 - `DEFAULT_MAX_TURNS` (default in `wrangler.toml`)
 - `MAX_TURN_CHARS` (default in `wrangler.toml`)
+- `TURN_DELAY_MS` (default in `wrangler.toml`, controls delay between turns)
 
 Voice mapping variables (one per figure):
 - `VOICE_SOCRATES`

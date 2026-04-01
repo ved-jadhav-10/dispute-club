@@ -20,15 +20,29 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+function capAtSentenceBoundary(text: string, maxChars: number): string {
+  if (text.length <= maxChars) {
+    return text;
+  }
+
+  const slice = text.slice(0, maxChars);
+  const lastBoundary = Math.max(slice.lastIndexOf("."), slice.lastIndexOf("!"), slice.lastIndexOf("?"));
+  if (lastBoundary >= Math.floor(maxChars * 0.6)) {
+    return slice.slice(0, lastBoundary + 1).trim();
+  }
+
+  return `${slice.trimEnd()}.`;
+}
+
 function toPunchy(argument: string): string {
   const compact = argument.replace(/\s+/g, " ").trim();
   const parts = compact.split(/(?<=[.!?])\s+/).filter(Boolean);
-  const shortened = parts.slice(0, 2).join(" ");
+  const shortened = parts.slice(0, 4).join(" ");
   const capped = shortened || compact;
-  if (capped.length <= 260) {
+  if (capped.length <= 520) {
     return capped;
   }
-  return `${capped.slice(0, 257).trimEnd()}...`;
+  return capped.slice(0, 520).trimEnd();
 }
 
 function tryParseStructuredTurn(raw: string): DebateTurnResult | null {
@@ -123,8 +137,8 @@ function buildPrompt(params: GenerateTurnParams, recentTranscript: string): stri
     `Current heat level: ${params.heat.toFixed(2)} (0 to 1).`,
     "Rules:",
     "- Reply directly to the last point.",
-    "- 1-2 short punchy sentences.",
-    "- Maximum 40 words.",
+    "- 3-4 concise, natural sentences.",
+    "- Maximum 90 words.",
     "- Stay in character.",
     "Return ONLY strict JSON: {\"argument\": string, \"heatDelta\": number, \"persuasionDelta\": number}.",
     "Do not include markdown, speaker labels, or extra text.",
@@ -190,14 +204,14 @@ export async function generateTurn(params: GenerateTurnParams): Promise<DebateTu
       }
 
       return {
-        argument: toPunchy(structured.argument).slice(0, Number(params.env.MAX_TURN_CHARS || 700)),
+        argument: capAtSentenceBoundary(toPunchy(structured.argument), Number(params.env.MAX_TURN_CHARS || 700)),
         heatDelta: clamp(Number(structured.heatDelta ?? 0.05), -0.1, 0.2),
         persuasionDelta: clamp(Number(structured.persuasionDelta ?? 0), -0.2, 0.2)
       };
     }
 
     return {
-      argument: toPunchy(sanitizeFreeformArgument(raw)).slice(0, Number(params.env.MAX_TURN_CHARS || 700)),
+      argument: capAtSentenceBoundary(toPunchy(sanitizeFreeformArgument(raw)), Number(params.env.MAX_TURN_CHARS || 700)),
       heatDelta: 0.06,
       persuasionDelta: params.heat > 0.7 ? -0.02 : 0.03
     };

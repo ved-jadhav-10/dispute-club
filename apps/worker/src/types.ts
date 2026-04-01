@@ -55,9 +55,11 @@ export interface Env {
   WORKERS_AI_MODEL: string;
   DEFAULT_MAX_TURNS: string;
   MAX_TURN_CHARS: string;
+  TURN_DELAY_MS?: string;
   ELEVENLABS_API_KEY?: string;
   ELEVENLABS_BASE_URL?: string;
   ELEVENLABS_MODEL_ID?: string;
+  ELEVENLABS_DEFAULT_VOICE_ID?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   VOICE_SOCRATES?: string;

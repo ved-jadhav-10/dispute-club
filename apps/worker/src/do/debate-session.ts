@@ -5,6 +5,12 @@ import type { Env, SessionConfig, SessionState, Side } from "../types";
 
 type EventSink = (eventName: string, payload: unknown) => void;
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -129,6 +135,11 @@ export class DebateSessionDO implements DurableObject {
         }
 
         await this.generateAndAppendTurn(session);
+
+        const delayMs = Math.max(0, Number(this.env.TURN_DELAY_MS || 2000));
+        if (delayMs > 0) {
+          await sleep(delayMs);
+        }
       }
     } finally {
       this.isLoopRunning = false;

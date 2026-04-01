@@ -70,6 +70,7 @@ export default function SetupPage() {
     try {
       setIsLoading(true);
       setError(null);
+      sessionStorage.setItem("dc-audio-primed", "1");
       const session = await createSession({
         topic,
         leftFigureId,

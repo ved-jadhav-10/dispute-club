@@ -71,5 +71,8 @@ export function resolveVoiceId(env: Env, figureId: string, fallback: string): st
   if (typeof configured === "string" && configured.trim().length > 0) {
     return configured.trim();
   }
+  if (typeof env.ELEVENLABS_DEFAULT_VOICE_ID === "string" && env.ELEVENLABS_DEFAULT_VOICE_ID.trim().length > 0) {
+    return env.ELEVENLABS_DEFAULT_VOICE_ID.trim();
+  }
   return fallback;
 }
