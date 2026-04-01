@@ -4,12 +4,27 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSession, getFigures, type Figure } from "../lib/api";
 
+const QUICK_TOPICS = [
+  "AI regulation",
+  "Democracy",
+  "Free will",
+  "Wealth limits",
+  "War & justice"
+];
+
+const ROUND_OPTIONS = [4, 6, 8, 10];
+
+function imagePath(figureId: string): string {
+  return `/assets/characters/${figureId}.png`;
+}
+
 export default function SetupPage() {
   const router = useRouter();
   const [figures, setFigures] = useState<Figure[]>([]);
   const [topic, setTopic] = useState("Should AI be regulated?");
-  const [leftFigureId, setLeftFigureId] = useState("socrates");
+  const [leftFigureId, setLeftFigureId] = useState("confucius");
   const [rightFigureId, setRightFigureId] = useState("napoleon");
+  const [maxTurns, setMaxTurns] = useState(6);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +38,33 @@ export default function SetupPage() {
       });
   }, []);
 
-  const selectable = useMemo(() => figures.map((figure) => ({ id: figure.id, label: figure.name })), [figures]);
+  const leftFigure = figures.find((f) => f.id === leftFigureId);
+  const rightFigure = figures.find((f) => f.id === rightFigureId);
+
+  function handleFigureClick(figureId: string) {
+    if (!leftFigureId) {
+      setLeftFigureId(figureId);
+    } else if (!rightFigureId && figureId !== leftFigureId) {
+      setRightFigureId(figureId);
+    } else if (figureId === leftFigureId) {
+      setLeftFigureId("");
+    } else if (figureId === rightFigureId) {
+      setRightFigureId("");
+    } else {
+      setRightFigureId(figureId);
+    }
+  }
+
+  function handleQuickTopic(quickTopic: string) {
+    const topicMap: Record<string, string> = {
+      "AI regulation": "Should AI be regulated?",
+      "Democracy": "Is democracy the best form of government?",
+      "Free will": "Do humans have free will?",
+      "Wealth limits": "Should there be limits on personal wealth?",
+      "War & justice": "Can war ever be justified?"
+    };
+    setTopic(topicMap[quickTopic] || quickTopic);
+  }
 
   async function onStart() {
     try {
@@ -33,7 +74,7 @@ export default function SetupPage() {
         topic,
         leftFigureId,
         rightFigureId,
-        maxTurns: 6
+        maxTurns
       });
       router.push(`/debate/${session.sessionId}`);
     } catch (startError) {
@@ -45,52 +86,137 @@ export default function SetupPage() {
 
   return (
     <main className="container home-layout">
-      <section className="panel hero-panel">
-        <p className="eyebrow">Voice Arena</p>
-        <img src="/assets/logo.png" alt="Dispute Club" className="brand-logo" />
-        <p style={{ marginTop: 0, color: "var(--muted)", maxWidth: 640 }}>
-          Stage a six-turn showdown between iconic historical minds on any modern question, then listen as each side escalates the heat in real time.
-        </p>
+      {/* Title */}
+      <div className="title-wrap">
+        <h1 className="glitch-title">DISPUTE<br />CLUB</h1>
+        <p className="subtitle">intellectual combat · est. mmxxvi</p>
+      </div>
+
+      {/* Topic Input */}
+      <section>
+        <div className="section-label">Enter debate topic</div>
+        <input
+          className="field"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="What should they debate?"
+        />
       </section>
 
-      <section id="new-debate" className="panel" style={{ display: "grid", gap: 16 }}>
-        <h2 style={{ margin: 0 }}>New Debate</h2>
+      {/* Quick Select */}
+      <section>
+        <div className="section-label">Quick select</div>
+        <div className="quick-select">
+          {QUICK_TOPICS.map((qt) => (
+            <button
+              key={qt}
+              className={`quick-btn ${topic.toLowerCase().includes(qt.toLowerCase().split(" ")[0]) ? "active" : ""}`}
+              onClick={() => handleQuickTopic(qt)}
+            >
+              {qt}
+            </button>
+          ))}
+        </div>
+      </section>
 
-        <label>
-          Topic
-          <input className="field" value={topic} onChange={(event) => setTopic(event.target.value)} />
-        </label>
+      {/* Fighter Selection */}
+      <section>
+        <div className="section-label">Choose fighters</div>
 
-        <div className="split-grid">
-          <label>
-            Left Figure
-            <select className="field" value={leftFigureId} onChange={(event) => setLeftFigureId(event.target.value)}>
-              {selectable.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Right Figure
-            <select className="field" value={rightFigureId} onChange={(event) => setRightFigureId(event.target.value)}>
-              {selectable.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
+        {/* P1 - Left */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: "var(--cyan)", marginBottom: 8 }}>P1 — left</div>
+          <div
+            className={`selection-box ${leftFigureId ? "left" : ""}`}
+            onClick={() => leftFigureId && setLeftFigureId("")}
+            style={{ cursor: leftFigureId ? "pointer" : "default" }}
+          >
+            {leftFigureId && leftFigure ? (
+              <>
+                <span className="plus-icon" style={{ alignSelf: "flex-end" }}>+</span>
+                <img src={imagePath(leftFigureId)} alt={leftFigure.name} className="fighter-avatar" />
+                <div className="fighter-name">{leftFigure.name}</div>
+              </>
+            ) : (
+              <span className="plus-icon">+</span>
+            )}
+          </div>
         </div>
 
-        <button disabled={isLoading || !topic.trim() || leftFigureId === rightFigureId} onClick={onStart}>
-          {isLoading ? "Starting..." : "Start 6-Turn Debate"}
-        </button>
+        <div className="vs-text">VS</div>
 
-        {error && <p style={{ color: "#8b2f2f", margin: 0 }}>{error}</p>}
+        {/* P2 - Right */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 11, color: "var(--cyan)", marginBottom: 8 }}>P2 — right</div>
+          <div
+            className={`selection-box ${rightFigureId ? "right" : ""}`}
+            onClick={() => rightFigureId && setRightFigureId("")}
+            style={{ cursor: rightFigureId ? "pointer" : "default" }}
+          >
+            {rightFigureId && rightFigure ? (
+              <>
+                <span className="plus-icon" style={{ alignSelf: "flex-end" }}>+</span>
+                <img src={imagePath(rightFigureId)} alt={rightFigure.name} className="fighter-avatar" />
+                <div className="fighter-name">{rightFigure.name}</div>
+              </>
+            ) : (
+              <span className="plus-icon">+</span>
+            )}
+          </div>
+        </div>
       </section>
+
+      {/* All Fighters Grid */}
+      <section>
+        <div className="section-label">All fighters</div>
+        <div className="fighter-grid">
+          {figures.map((figure) => {
+            const isLeft = leftFigureId === figure.id;
+            const isRight = rightFigureId === figure.id;
+            return (
+              <div
+                key={figure.id}
+                className={`fighter-card ${isLeft ? "selected-left" : ""} ${isRight ? "selected-right" : ""}`}
+                onClick={() => handleFigureClick(figure.id)}
+              >
+                <span className="plus-icon">+</span>
+                <img src={imagePath(figure.id)} alt={figure.name} className="fighter-avatar" />
+                <div className="fighter-name">{figure.name}</div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Rounds Selector */}
+      <section>
+        <div className="section-label">Rounds</div>
+        <div className="rounds-selector">
+          {ROUND_OPTIONS.map((r) => (
+            <button
+              key={r}
+              className={`round-btn ${maxTurns === r ? "active" : ""}`}
+              onClick={() => setMaxTurns(r)}
+            >
+              {r}
+            </button>
+          ))}
+          <span className="rounds-label">turns</span>
+        </div>
+      </section>
+
+      {/* Start Button */}
+      <div>
+        <button
+          className="start-btn"
+          disabled={isLoading || !topic.trim() || !leftFigureId || !rightFigureId || leftFigureId === rightFigureId}
+          onClick={onStart}
+        >
+          {isLoading ? "STARTING..." : "START DEBATE"}
+        </button>
+        <div className="progress-bar" />
+        {error && <p className="error-msg">{error}</p>}
+      </div>
     </main>
   );
 }
