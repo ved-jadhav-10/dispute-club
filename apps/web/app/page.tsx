@@ -14,13 +14,34 @@ const QUICK_TOPICS = [
 
 const ROUND_OPTIONS = [4, 6, 8, 10];
 
+const FALLBACK_FIGURES: Figure[] = [
+  { id: "socrates", name: "Socrates", era: "c. 470-399 BCE", styleRules: [], elevenVoiceId: "VOICE_SOCRATES" },
+  {
+    id: "napoleon",
+    name: "Napoleon Bonaparte",
+    era: "1769-1821",
+    styleRules: [],
+    elevenVoiceId: "VOICE_NAPOLEON"
+  },
+  { id: "newton", name: "Isaac Newton", era: "1643-1727", styleRules: [], elevenVoiceId: "VOICE_NEWTON" },
+  { id: "gandhi", name: "Mahatma Gandhi", era: "1869-1948", styleRules: [], elevenVoiceId: "VOICE_GANDHI" },
+  {
+    id: "shakespeare",
+    name: "William Shakespeare",
+    era: "1564-1616",
+    styleRules: [],
+    elevenVoiceId: "VOICE_SHAKESPEARE"
+  },
+  { id: "confucius", name: "Confucius", era: "551-479 BCE", styleRules: [], elevenVoiceId: "VOICE_CONFUCIUS" }
+];
+
 function imagePath(figureId: string): string {
   return `/assets/characters/${figureId}.png`;
 }
 
 export default function SetupPage() {
   const router = useRouter();
-  const [figures, setFigures] = useState<Figure[]>([]);
+  const [figures, setFigures] = useState<Figure[]>(FALLBACK_FIGURES);
   const [topic, setTopic] = useState("Should AI be regulated?");
   const [leftFigureId, setLeftFigureId] = useState("confucius");
   const [rightFigureId, setRightFigureId] = useState("napoleon");
@@ -31,7 +52,9 @@ export default function SetupPage() {
   useEffect(() => {
     getFigures()
       .then((items) => {
-        setFigures(items);
+        if (items.length > 0) {
+          setFigures(items);
+        }
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Failed to load figures");
